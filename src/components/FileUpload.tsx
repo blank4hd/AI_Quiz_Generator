@@ -3,6 +3,11 @@ import { useState, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { createWorker } from 'tesseract.js';
+// @ts-ignore
+import * as pdfParse from 'pdf-parse/lib/pdf-parse';
+// @ts-ignore
+import * as mammoth from 'mammoth';
 
 interface FileUploadProps {
   onFileProcessed: (content: string, fileName: string) => void;
@@ -44,26 +49,42 @@ export function FileUpload({ onFileProcessed }: FileUploadProps) {
     setIsProcessing(true);
 
     try {
-      // For now, just read text files
+      let extractedText = "";
+
       if (file.type === "text/plain") {
-        const text = await file.text();
-        onFileProcessed(text, file.name);
-        toast({
-          title: "File processed",
-          description: "Your document is ready for quiz generation.",
-        });
-      } else {
-        // Mock processing for other file types
-        setTimeout(() => {
-          const mockContent = "This is a sample document content that would be extracted from your file. In a full implementation, this would use OCR for images and PDF parsing for documents.";
-          onFileProcessed(mockContent, file.name);
-          toast({
-            title: "File processed",
-            description: "Your document is ready for quiz generation.",
-          });
-        }, 2000);
+        extractedText = await file.text();
+      } else if (file.type === "application/pdf") {
+        const arrayBuffer = await file.arrayBuffer();
+        const data = await pdfParse(arrayBuffer);
+        extractedText = data.text;
+      } else if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        extractedText = result.value;
+      } else if (file.type === "image/jpeg" || file.type === "image/png") {
+        const worker = await createWorker('eng');
+        const { data } = await worker.recognize(file);
+        extractedText = data.text;
+        await worker.terminate();
       }
+
+      if (!extractedText || extractedText.trim().length === 0) {
+        toast({
+          title: "No text found",
+          description: "Could not extract any text from this file.",
+          variant: "destructive",
+        });
+        setIsProcessing(false);
+        return;
+      }
+
+      onFileProcessed(extractedText, file.name);
+      toast({
+        title: "File processed",
+        description: "Your document is ready for quiz generation.",
+      });
     } catch (error) {
+      console.error('File processing error:', error);
       toast({
         title: "Processing failed",
         description: "Could not process your file. Please try again.",

@@ -39,32 +39,52 @@ const Index = () => {
   const handleGenerateQuiz = async () => {
     setIsGenerating(true);
     setProgress(0);
-    
-    // Simulate AI processing with progress
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 90) {
-          clearInterval(interval);
-          return 90;
-        }
+
+    const progressInterval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 90) return prev;
         return prev + 10;
       });
-    }, 200);
+    }, 500);
 
-    // Mock AI generation
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    
-    clearInterval(interval);
-    setProgress(100);
-    
-    const newQuestions = generateMockQuestions(5);
-    setQuestions(newQuestions);
-    setIsGenerating(false);
+    try {
+      const response = await fetch('/functions/v1/gemini-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: documentContent,
+          type: 'generate',
+          options: { count: 5, difficulty: 'mixed' }
+        })
+      });
 
-    toast({
-      title: "Quiz generated!",
-      description: `Created ${newQuestions.length} questions from your document.`,
-    });
+      clearInterval(progressInterval);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate quiz');
+      }
+
+      const data = await response.json();
+      setQuestions(data.questions);
+      setProgress(100);
+      
+      toast({
+        title: "Quiz generated!",
+        description: `Created ${data.questions.length} questions from your document.`,
+      });
+    } catch (error) {
+      console.error('Quiz generation error:', error);
+      toast({
+        title: "Generation failed",
+        description: error instanceof Error ? error.message : "Could not generate quiz. Please try again.",
+        variant: "destructive",
+      });
+      setProgress(0);
+    } finally {
+      clearInterval(progressInterval);
+      setTimeout(() => setIsGenerating(false), 500);
+    }
   };
 
   const handleUpdateQuestion = (id: string, updates: Partial<Question>) => {
@@ -81,33 +101,79 @@ const Index = () => {
     });
   };
 
-  const handleRegenerateQuestion = (id: string) => {
-    const newQuestion = generateMockQuestions(1)[0];
-    setQuestions((prev) =>
-      prev.map((q) => (q.id === id ? { ...newQuestion, id } : q))
-    );
-    toast({
-      title: "Question regenerated",
-      description: "A new question has been generated.",
-    });
+  const handleRegenerateQuestion = async (id: string) => {
+    const questionIndex = questions.findIndex(q => q.id === id);
+    if (questionIndex === -1) return;
+
+    const existingQuestion = questions[questionIndex];
+
+    try {
+      const response = await fetch('/functions/v1/gemini-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: documentContent,
+          type: 'regenerate',
+          options: { existingQuestion }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to regenerate question');
+      }
+
+      const data = await response.json();
+      const newQuestion = data.questions[0];
+
+      const newQuestions = [...questions];
+      newQuestions[questionIndex] = newQuestion;
+      setQuestions(newQuestions);
+
+      toast({
+        title: "Question regenerated",
+        description: "A new question has been created.",
+      });
+    } catch (error) {
+      console.error('Regeneration error:', error);
+      toast({
+        title: "Regeneration failed",
+        description: "Could not regenerate question. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleAddQuestions = async (topic: string, count: number) => {
-    toast({
-      title: "Generating questions...",
-      description: `Creating ${count} new questions about: ${topic || "your document"}`,
-    });
+    try {
+      const response = await fetch('/functions/v1/gemini-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: documentContent,
+          type: 'add',
+          options: { topic, count }
+        })
+      });
 
-    // Mock AI generation
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (!response.ok) {
+        throw new Error('Failed to add questions');
+      }
 
-    const newQuestions = generateMockQuestions(count);
-    setQuestions((prev) => [...prev, ...newQuestions]);
+      const data = await response.json();
+      setQuestions([...questions, ...data.questions]);
 
-    toast({
-      title: "Questions added!",
-      description: `Added ${count} new questions to your quiz.`,
-    });
+      toast({
+        title: "Questions added",
+        description: `Added ${data.questions.length} new questions about ${topic}.`,
+      });
+    } catch (error) {
+      console.error('Add questions error:', error);
+      toast({
+        title: "Failed to add questions",
+        description: "Could not generate new questions. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
