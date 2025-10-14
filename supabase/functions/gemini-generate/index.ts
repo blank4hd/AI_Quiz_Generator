@@ -70,7 +70,7 @@ Rules:
     }
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -108,7 +108,23 @@ Rules:
     const data = await response.json();
     console.log('Gemini response received');
 
+    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+      console.error('Invalid Gemini response structure:', JSON.stringify(data));
+      return new Response(
+        JSON.stringify({ error: 'AI returned an invalid response. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    
+    if (!generatedText.trim()) {
+      console.error('Empty response from Gemini');
+      return new Response(
+        JSON.stringify({ error: 'AI returned an empty response. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     // Extract JSON from response (sometimes wrapped in markdown)
     let jsonText = generatedText.trim();
@@ -118,7 +134,27 @@ Rules:
       jsonText = jsonText.replace(/```\s*/, '').replace(/```\s*$/, '');
     }
 
-    const questions = JSON.parse(jsonText);
+    let questions;
+    try {
+      questions = JSON.parse(jsonText);
+    } catch (parseError) {
+      console.error('Failed to parse JSON from Gemini:', jsonText);
+      return new Response(
+        JSON.stringify({ 
+          error: 'AI returned invalid JSON. Please try again.',
+          details: parseError instanceof Error ? parseError.message : 'Unknown parse error'
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+      console.error('Questions is not an array or is empty:', questions);
+      return new Response(
+        JSON.stringify({ error: 'AI did not generate any questions. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Add unique IDs to questions and options
     const questionsWithIds = questions.map((q: any) => ({

@@ -60,12 +60,33 @@ const Index = () => {
 
       clearInterval(progressInterval);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate quiz');
+      // Check if response is empty or not JSON
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Server returned invalid response. Please check if Supabase functions are running.");
       }
 
-      const data = await response.json();
+      const text = await response.text();
+      if (!text) {
+        throw new Error("Server returned empty response. Please check if Supabase functions are running.");
+      }
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error('Failed to parse JSON:', text);
+        throw new Error("Server returned invalid JSON. Please check if Supabase functions are running.");
+      }
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate quiz');
+      }
+
+      if (!data.questions || data.questions.length === 0) {
+        throw new Error("No questions were generated. Please try again.");
+      }
+
       setQuestions(data.questions);
       setProgress(100);
       
@@ -118,11 +139,28 @@ const Index = () => {
         })
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to regenerate question');
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Server returned invalid response");
       }
 
-      const data = await response.json();
+      const text = await response.text();
+      if (!text) {
+        throw new Error("Server returned empty response");
+      }
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error('Failed to parse JSON:', text);
+        throw new Error("Server returned invalid JSON");
+      }
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to regenerate question');
+      }
+
       const newQuestion = data.questions[0];
 
       const newQuestions = [...questions];
@@ -137,7 +175,7 @@ const Index = () => {
       console.error('Regeneration error:', error);
       toast({
         title: "Regeneration failed",
-        description: "Could not regenerate question. Please try again.",
+        description: error instanceof Error ? error.message : "Could not regenerate question. Please try again.",
         variant: "destructive",
       });
     }
@@ -155,11 +193,28 @@ const Index = () => {
         })
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to add questions');
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Server returned invalid response");
       }
 
-      const data = await response.json();
+      const text = await response.text();
+      if (!text) {
+        throw new Error("Server returned empty response");
+      }
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error('Failed to parse JSON:', text);
+        throw new Error("Server returned invalid JSON");
+      }
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to add questions');
+      }
+
       setQuestions([...questions, ...data.questions]);
 
       toast({
@@ -170,7 +225,7 @@ const Index = () => {
       console.error('Add questions error:', error);
       toast({
         title: "Failed to add questions",
-        description: "Could not generate new questions. Please try again.",
+        description: error instanceof Error ? error.message : "Could not generate new questions. Please try again.",
         variant: "destructive",
       });
     }
