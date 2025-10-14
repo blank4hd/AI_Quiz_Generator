@@ -4,10 +4,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { createWorker } from 'tesseract.js';
-// @ts-ignore
-import * as pdfParse from 'pdf-parse/lib/pdf-parse';
-// @ts-ignore
 import * as mammoth from 'mammoth';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 interface FileUploadProps {
   onFileProcessed: (content: string, fileName: string) => void;
@@ -55,8 +56,19 @@ export function FileUpload({ onFileProcessed }: FileUploadProps) {
         extractedText = await file.text();
       } else if (file.type === "application/pdf") {
         const arrayBuffer = await file.arrayBuffer();
-        const data = await pdfParse(arrayBuffer);
-        extractedText = data.text;
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const textParts: string[] = [];
+        
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items
+            .map((item: any) => item.str)
+            .join(' ');
+          textParts.push(pageText);
+        }
+        
+        extractedText = textParts.join('\n\n');
       } else if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
         const arrayBuffer = await file.arrayBuffer();
         const result = await mammoth.extractRawText({ arrayBuffer });
