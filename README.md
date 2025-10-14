@@ -59,6 +59,17 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+- PDF.js (for PDF parsing)
+- Tesseract.js (for OCR)
+- Mammoth (for DOCX parsing)
+
+### Important Note: PDF Worker File
+
+The application requires a PDF.js worker file located at `public/pdf.worker.min.mjs`. This file is copied from the `pdfjs-dist` package. If you update the `pdfjs-dist` package, you may need to re-copy the worker file:
+
+```sh
+cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs public/pdf.worker.min.mjs
+```
 
 ## How can I deploy this project?
 

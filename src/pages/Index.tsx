@@ -19,6 +19,7 @@ const Index = () => {
   const [showFormatDialog, setShowFormatDialog] = useState(false);
   const [isTakingQuiz, setIsTakingQuiz] = useState(false);
   const [quizFormatConfig, setQuizFormatConfig] = useState<QuizFormatConfig>({ timed: false, timeLimit: 30 });
+  const [quizConfig, setQuizConfig] = useState<QuizConfig | null>(null);
   const { toast } = useToast();
 
   const handleFileProcessed = (content: string, fileName: string) => {
@@ -46,6 +47,7 @@ const Index = () => {
   const handleGenerateQuiz = async (config: QuizConfig) => {
     setIsGenerating(true);
     setProgress(0);
+    setQuizConfig(config); // Store the config for later use
 
     const progressInterval = setInterval(() => {
       setProgress(prev => {
@@ -147,7 +149,10 @@ const Index = () => {
         body: JSON.stringify({
           content: documentContent,
           type: 'regenerate',
-          options: { existingQuestion }
+          options: { 
+            existingQuestion,
+            questionType: existingQuestion.type // Keep same type as original question
+          }
         })
       });
 
@@ -201,7 +206,12 @@ const Index = () => {
         body: JSON.stringify({
           content: documentContent,
           type: 'add',
-          options: { topic, count }
+          options: { 
+            topic, 
+            count,
+            questionType: quizConfig?.questionType || 'mixed',
+            difficulty: quizConfig?.difficulty || 'mixed'
+          }
         })
       });
 

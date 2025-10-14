@@ -7,8 +7,8 @@ import { createWorker } from 'tesseract.js';
 import * as mammoth from 'mammoth';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Configure PDF.js worker to use local file
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 interface FileUploadProps {
   onFileProcessed: (content: string, fileName: string) => void;
@@ -55,20 +55,31 @@ export function FileUpload({ onFileProcessed }: FileUploadProps) {
       if (file.type === "text/plain") {
         extractedText = await file.text();
       } else if (file.type === "application/pdf") {
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        const textParts: string[] = [];
-        
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const textContent = await page.getTextContent();
-          const pageText = textContent.items
-            .map((item: any) => item.str)
-            .join(' ');
-          textParts.push(pageText);
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          console.log('PDF arrayBuffer size:', arrayBuffer.byteLength);
+          
+          const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+          const pdf = await loadingTask.promise;
+          console.log('PDF loaded, pages:', pdf.numPages);
+          
+          const textParts: string[] = [];
+          
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items
+              .map((item: any) => item.str)
+              .join(' ');
+            textParts.push(pageText);
+          }
+          
+          extractedText = textParts.join('\n\n');
+          console.log('Extracted text length:', extractedText.length);
+        } catch (pdfError) {
+          console.error('PDF processing error:', pdfError);
+          throw new Error(`Failed to parse PDF: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'}`);
         }
-        
-        extractedText = textParts.join('\n\n');
       } else if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
         const arrayBuffer = await file.arrayBuffer();
         const result = await mammoth.extractRawText({ arrayBuffer });
@@ -97,9 +108,10 @@ export function FileUpload({ onFileProcessed }: FileUploadProps) {
       });
     } catch (error) {
       console.error('File processing error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Could not process your file. Please try again.';
       toast({
         title: "Processing failed",
-        description: "Could not process your file. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
