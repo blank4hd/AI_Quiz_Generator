@@ -1,7 +1,7 @@
 import { Question } from "@/types/quiz";
 import { QuestionCard } from "./QuestionCard";
 import { Button } from "@/components/ui/button";
-import { Plus, Download } from "lucide-react";
+import { Plus, Download, PlayCircle } from "lucide-react";
 import { useState } from "react";
 import { AddQuestionsDialog } from "./AddQuestionsDialog";
 import { ExportDialog } from "./ExportDialog";
@@ -12,6 +12,7 @@ interface QuizBuilderProps {
   onDeleteQuestion: (id: string) => void;
   onRegenerateQuestion: (id: string) => void;
   onAddQuestions: (topic: string, count: number) => void;
+  onTakeQuiz: () => void;
 }
 
 export function QuizBuilder({
@@ -20,6 +21,7 @@ export function QuizBuilder({
   onDeleteQuestion,
   onRegenerateQuestion,
   onAddQuestions,
+  onTakeQuiz,
 }: QuizBuilderProps) {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -40,6 +42,14 @@ export function QuizBuilder({
           >
             <Plus className="w-4 h-4 mr-2" />
             Add AI Questions
+          </Button>
+          <Button
+            onClick={onTakeQuiz}
+            disabled={questions.length === 0}
+            variant="secondary"
+          >
+            <PlayCircle className="w-4 h-4 mr-2" />
+            Take Quiz
           </Button>
           <Button
             onClick={() => setShowExportDialog(true)}

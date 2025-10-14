@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { FileUpload } from "@/components/FileUpload";
 import { QuizBuilder } from "@/components/QuizBuilder";
+import { QuizConfigDialog, QuizConfig } from "@/components/QuizConfigDialog";
+import { QuizFormatDialog, QuizFormatConfig } from "@/components/QuizFormatDialog";
+import { QuizTaker } from "@/components/QuizTaker";
 import { Question } from "@/types/quiz";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +15,10 @@ const Index = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [showConfigDialog, setShowConfigDialog] = useState(false);
+  const [showFormatDialog, setShowFormatDialog] = useState(false);
+  const [isTakingQuiz, setIsTakingQuiz] = useState(false);
+  const [quizFormatConfig, setQuizFormatConfig] = useState<QuizFormatConfig>({ timed: false, timeLimit: 30 });
   const { toast } = useToast();
 
   const handleFileProcessed = (content: string, fileName: string) => {
@@ -36,7 +43,7 @@ const Index = () => {
     }));
   };
 
-  const handleGenerateQuiz = async () => {
+  const handleGenerateQuiz = async (config: QuizConfig) => {
     setIsGenerating(true);
     setProgress(0);
 
@@ -54,7 +61,12 @@ const Index = () => {
         body: JSON.stringify({
           content: documentContent,
           type: 'generate',
-          options: { count: 5, difficulty: 'mixed' }
+          options: { 
+            count: config.numberOfQuestions, 
+            difficulty: config.difficulty,
+            questionType: config.questionType,
+            useDocumentQuestions: config.useDocumentQuestions
+          }
         })
       });
 
@@ -257,13 +269,20 @@ const Index = () => {
             <div className="flex justify-center">
               <Button
                 size="lg"
-                onClick={handleGenerateQuiz}
+                onClick={() => setShowConfigDialog(true)}
                 disabled={isGenerating}
               >
-                {isGenerating ? "Generating..." : "Generate Quiz"}
+                Configure & Generate Quiz
               </Button>
             </div>
           </div>
+        ) : isTakingQuiz ? (
+          <QuizTaker
+            questions={questions}
+            onExit={() => setIsTakingQuiz(false)}
+            timed={quizFormatConfig.timed}
+            timeLimit={quizFormatConfig.timeLimit}
+          />
         ) : (
           <QuizBuilder
             questions={questions}
@@ -271,8 +290,28 @@ const Index = () => {
             onDeleteQuestion={handleDeleteQuestion}
             onRegenerateQuestion={handleRegenerateQuestion}
             onAddQuestions={handleAddQuestions}
+            onTakeQuiz={() => setShowFormatDialog(true)}
           />
         )}
+
+        <QuizConfigDialog
+          open={showConfigDialog}
+          onClose={() => setShowConfigDialog(false)}
+          onConfirm={(config) => {
+            setShowConfigDialog(false);
+            handleGenerateQuiz(config);
+          }}
+          documentName={documentName}
+        />
+
+        <QuizFormatDialog
+          open={showFormatDialog}
+          onClose={() => setShowFormatDialog(false)}
+          onStart={(config) => {
+            setQuizFormatConfig(config);
+            setIsTakingQuiz(true);
+          }}
+        />
       </div>
     </div>
   );
