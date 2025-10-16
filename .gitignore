@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 *.env
 *.env.local
+
+# Supabase (legacy - no longer used)
+supabase/
+.supabase/

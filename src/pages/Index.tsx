@@ -2,7 +2,10 @@ import { useState } from "react";
 import { FileUpload } from "@/components/FileUpload";
 import { QuizBuilder } from "@/components/QuizBuilder";
 import { QuizConfigDialog, QuizConfig } from "@/components/QuizConfigDialog";
-import { QuizFormatDialog, QuizFormatConfig } from "@/components/QuizFormatDialog";
+import {
+  QuizFormatDialog,
+  QuizFormatConfig,
+} from "@/components/QuizFormatDialog";
 import { QuizTaker } from "@/components/QuizTaker";
 import { Question } from "@/types/quiz";
 import { Button } from "@/components/ui/button";
@@ -18,7 +21,10 @@ const Index = () => {
   const [showConfigDialog, setShowConfigDialog] = useState(false);
   const [showFormatDialog, setShowFormatDialog] = useState(false);
   const [isTakingQuiz, setIsTakingQuiz] = useState(false);
-  const [quizFormatConfig, setQuizFormatConfig] = useState<QuizFormatConfig>({ timed: false, timeLimit: 30 });
+  const [quizFormatConfig, setQuizFormatConfig] = useState<QuizFormatConfig>({
+    timed: false,
+    timeLimit: 30,
+  });
   const [quizConfig, setQuizConfig] = useState<QuizConfig | null>(null);
   const { toast } = useToast();
 
@@ -39,7 +45,9 @@ const Index = () => {
         { id: crypto.randomUUID(), text: "Option D", isCorrect: false },
       ],
       explanation: "This is a sample explanation for the correct answer.",
-      difficulty: ["easy", "medium", "hard"][Math.floor(Math.random() * 3)] as any,
+      difficulty: ["easy", "medium", "hard"][
+        Math.floor(Math.random() * 3)
+      ] as any,
       sourceReference: `Page ${Math.floor(Math.random() * 10) + 1}`,
     }));
   };
@@ -50,26 +58,26 @@ const Index = () => {
     setQuizConfig(config); // Store the config for later use
 
     const progressInterval = setInterval(() => {
-      setProgress(prev => {
+      setProgress((prev) => {
         if (prev >= 90) return prev;
         return prev + 10;
       });
     }, 500);
 
     try {
-      const response = await fetch('/functions/v1/gemini-generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content: documentContent,
-          type: 'generate',
-          options: { 
-            count: config.numberOfQuestions, 
+          type: "generate",
+          options: {
+            count: config.numberOfQuestions,
             difficulty: config.difficulty,
             questionType: config.questionType,
-            useDocumentQuestions: config.useDocumentQuestions
-          }
-        })
+            useDocumentQuestions: config.useDocumentQuestions,
+          },
+        }),
       });
 
       clearInterval(progressInterval);
@@ -77,24 +85,30 @@ const Index = () => {
       // Check if response is empty or not JSON
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Server returned invalid response. Please check if Supabase functions are running.");
+        throw new Error(
+          "Server returned invalid response. Please check if backend server is running."
+        );
       }
 
       const text = await response.text();
       if (!text) {
-        throw new Error("Server returned empty response. Please check if Supabase functions are running.");
+        throw new Error(
+          "Server returned empty response. Please check if backend server is running."
+        );
       }
 
       let data;
       try {
         data = JSON.parse(text);
       } catch (e) {
-        console.error('Failed to parse JSON:', text);
-        throw new Error("Server returned invalid JSON. Please check if Supabase functions are running.");
+        console.error("Failed to parse JSON:", text);
+        throw new Error(
+          "Server returned invalid JSON. Please check if Supabase functions are running."
+        );
       }
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate quiz');
+        throw new Error(data.error || "Failed to generate quiz");
       }
 
       if (!data.questions || data.questions.length === 0) {
@@ -103,16 +117,19 @@ const Index = () => {
 
       setQuestions(data.questions);
       setProgress(100);
-      
+
       toast({
         title: "Quiz generated!",
         description: `Created ${data.questions.length} questions from your document.`,
       });
     } catch (error) {
-      console.error('Quiz generation error:', error);
+      console.error("Quiz generation error:", error);
       toast({
         title: "Generation failed",
-        description: error instanceof Error ? error.message : "Could not generate quiz. Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Could not generate quiz. Please try again.",
         variant: "destructive",
       });
       setProgress(0);
@@ -137,23 +154,23 @@ const Index = () => {
   };
 
   const handleRegenerateQuestion = async (id: string) => {
-    const questionIndex = questions.findIndex(q => q.id === id);
+    const questionIndex = questions.findIndex((q) => q.id === id);
     if (questionIndex === -1) return;
 
     const existingQuestion = questions[questionIndex];
 
     try {
-      const response = await fetch('/functions/v1/gemini-generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content: documentContent,
-          type: 'regenerate',
-          options: { 
+          type: "regenerate",
+          options: {
             existingQuestion,
-            questionType: existingQuestion.type // Keep same type as original question
-          }
-        })
+            questionType: existingQuestion.type, // Keep same type as original question
+          },
+        }),
       });
 
       const contentType = response.headers.get("content-type");
@@ -170,12 +187,12 @@ const Index = () => {
       try {
         data = JSON.parse(text);
       } catch (e) {
-        console.error('Failed to parse JSON:', text);
+        console.error("Failed to parse JSON:", text);
         throw new Error("Server returned invalid JSON");
       }
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to regenerate question');
+        throw new Error(data.error || "Failed to regenerate question");
       }
 
       const newQuestion = data.questions[0];
@@ -189,10 +206,13 @@ const Index = () => {
         description: "A new question has been created.",
       });
     } catch (error) {
-      console.error('Regeneration error:', error);
+      console.error("Regeneration error:", error);
       toast({
         title: "Regeneration failed",
-        description: error instanceof Error ? error.message : "Could not regenerate question. Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Could not regenerate question. Please try again.",
         variant: "destructive",
       });
     }
@@ -200,19 +220,19 @@ const Index = () => {
 
   const handleAddQuestions = async (topic: string, count: number) => {
     try {
-      const response = await fetch('/functions/v1/gemini-generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content: documentContent,
-          type: 'add',
-          options: { 
-            topic, 
+          type: "add",
+          options: {
+            topic,
             count,
-            questionType: quizConfig?.questionType || 'mixed',
-            difficulty: quizConfig?.difficulty || 'mixed'
-          }
-        })
+            questionType: quizConfig?.questionType || "mixed",
+            difficulty: quizConfig?.difficulty || "mixed",
+          },
+        }),
       });
 
       const contentType = response.headers.get("content-type");
@@ -229,12 +249,12 @@ const Index = () => {
       try {
         data = JSON.parse(text);
       } catch (e) {
-        console.error('Failed to parse JSON:', text);
+        console.error("Failed to parse JSON:", text);
         throw new Error("Server returned invalid JSON");
       }
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to add questions');
+        throw new Error(data.error || "Failed to add questions");
       }
 
       setQuestions([...questions, ...data.questions]);
@@ -244,10 +264,13 @@ const Index = () => {
         description: `Added ${data.questions.length} new questions about ${topic}.`,
       });
     } catch (error) {
-      console.error('Add questions error:', error);
+      console.error("Add questions error:", error);
       toast({
         title: "Failed to add questions",
-        description: error instanceof Error ? error.message : "Could not generate new questions. Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Could not generate new questions. Please try again.",
         variant: "destructive",
       });
     }
@@ -263,7 +286,8 @@ const Index = () => {
             <div className="text-center space-y-4">
               <h2 className="text-3xl font-bold">Document Ready</h2>
               <p className="text-muted-foreground">
-                We've processed <span className="font-semibold">{documentName}</span>
+                We've processed{" "}
+                <span className="font-semibold">{documentName}</span>
               </p>
             </div>
 

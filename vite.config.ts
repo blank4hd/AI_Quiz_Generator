@@ -9,14 +9,21 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
     proxy: {
-      '/functions/v1': {
-        target: 'http://127.0.0.1:54321',
+      "/api": {
+        target: process.env.VITE_API_URL || "http://127.0.0.1:3001",
+        changeOrigin: true,
+        secure: false,
+      },
+      "/youtube": {
+        target: process.env.VITE_YOUTUBE_API_URL || "http://127.0.0.1:5001",
         changeOrigin: true,
         secure: false,
       },
     },
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [react(), mode === "development" && componentTagger()].filter(
+    Boolean
+  ),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

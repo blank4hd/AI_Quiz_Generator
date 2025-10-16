@@ -3,6 +3,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const axios = require("axios");
 require("dotenv").config();
 
 const app = express();
@@ -214,6 +215,127 @@ Remember: Return ONLY the JSON array, nothing else. START WITH [ AND END WITH ]`
       error: "Failed to generate quiz",
       details: error.message,
       type: requestType,
+    });
+  }
+});
+
+// YouTube Data API transcript endpoint
+app.post("/api/youtube-transcript", async (req, res) => {
+  try {
+    const { url, apiKey: youtubeApiKey } = req.body;
+
+    if (!url) {
+      return res.status(400).json({ error: "YouTube URL is required" });
+    }
+
+    // Use provided API key or fall back to Gemini API key
+    const ytApiKey = youtubeApiKey || apiKey;
+
+    if (!ytApiKey) {
+      return res.status(400).json({
+        error:
+          "API key is required. Either provide it or set GOOGLE_GEMINI_API_KEY environment variable.",
+      });
+    }
+
+    // Extract video ID from URL
+    const videoIdMatch = url.match(
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/)([^&\n?#]+)/
+    );
+    if (!videoIdMatch) {
+      return res.status(400).json({ error: "Invalid YouTube URL" });
+    }
+    const videoId = videoIdMatch[1];
+
+    console.log(`Fetching YouTube transcript for video: ${videoId}`);
+
+    // Get video details
+    const videoResponse = await axios.get(
+      `https://www.googleapis.com/youtube/v3/videos`,
+      {
+        params: {
+          part: "snippet",
+          id: videoId,
+          key: ytApiKey,
+        },
+      }
+    );
+
+    if (!videoResponse.data.items || videoResponse.data.items.length === 0) {
+      return res.status(404).json({ error: "Video not found" });
+    }
+
+    const videoTitle = videoResponse.data.items[0].snippet.title;
+
+    // Get captions list
+    const captionsResponse = await axios.get(
+      `https://www.googleapis.com/youtube/v3/captions`,
+      {
+        params: {
+          part: "snippet",
+          videoId: videoId,
+          key: ytApiKey,
+        },
+      }
+    );
+
+    if (
+      !captionsResponse.data.items ||
+      captionsResponse.data.items.length === 0
+    ) {
+      return res.status(404).json({
+        error:
+          "No captions available for this video. Try using the Python API method instead.",
+      });
+    }
+
+    // Find English caption
+    const englishCaption =
+      captionsResponse.data.items.find(
+        (item) =>
+          item.snippet.language === "en" ||
+          item.snippet.language.startsWith("en-")
+      ) || captionsResponse.data.items[0];
+
+    // Note: YouTube Data API v3 doesn't provide direct access to caption content
+    // This requires OAuth2 authentication for caption downloads
+    // For simplicity, we'll return video info and suggest using Python API
+
+    return res.status(200).json({
+      message: "Video found with captions",
+      videoId,
+      title: videoTitle,
+      captionTrack: englishCaption.snippet.language,
+      note: "YouTube Data API v3 requires OAuth2 for caption download. Please use the Python API method for transcript extraction, or set up OAuth2 authentication.",
+      availableCaptions: captionsResponse.data.items.map((item) => ({
+        language: item.snippet.language,
+        name: item.snippet.name,
+        trackKind: item.snippet.trackKind,
+      })),
+    });
+  } catch (error) {
+    console.error("YouTube API error:", error.response?.data || error.message);
+
+    if (error.response?.status === 403) {
+      return res.status(403).json({
+        error:
+          "YouTube Data API access denied. Please ensure the API is enabled in Google Cloud Console.",
+        details: error.response.data.error?.message,
+        setupGuide:
+          "Visit https://console.cloud.google.com/apis/library/youtube.googleapis.com",
+      });
+    }
+
+    if (error.response?.status === 400) {
+      return res.status(400).json({
+        error: "Invalid API key or request",
+        details: error.response.data.error?.message,
+      });
+    }
+
+    res.status(500).json({
+      error: "Failed to fetch YouTube data",
+      details: error.message,
     });
   }
 });

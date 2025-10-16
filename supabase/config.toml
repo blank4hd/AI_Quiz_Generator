@@ -1,4 +1,0 @@
-project_id = "local"
-
-[functions.gemini-generate]
-verify_jwt = false
