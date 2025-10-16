@@ -22,8 +22,8 @@ import { createWorker } from "tesseract.js";
 import * as mammoth from "mammoth";
 import * as pdfjsLib from "pdfjs-dist";
 
-// Configure PDF.js worker to use local file
-pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+// Configure PDF.js worker - using unpkg CDN for reliable ESM support
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@5.4.296/build/pdf.worker.min.mjs`;
 
 interface FileUploadProps {
   onFileProcessed: (content: string, fileName: string) => void;
