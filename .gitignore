@@ -28,3 +28,6 @@ dist-ssr
 # Supabase (legacy - no longer used)
 supabase/
 .supabase/
+
+# Bun (removed - using npm exclusively)
+bun.lockb

@@ -47,8 +47,8 @@ See [DOCKER_DEPLOYMENT.md](./DOCKER_DEPLOYMENT.md#development) for detailed inst
 OR (for manual setup):
 
 - Node.js 18+
+- npm (comes with Node.js)
 - Python 3.11+
-- npm or bun
 
 ## 🏗️ Architecture
 
